@@ -10,18 +10,24 @@ class DbViewer:
         self.myDB = db
         self.myDBcursor = self.myDB.cursor()
 
+        self.searchResults = []
+
         self.searchContainer = tk.Frame(self.myParent)
         self.searchContainer.grid(row=0,column=0)
 
         tk.Label(self.searchContainer,text="Search:").grid(row=0,column=0)
         self.searchBar = tk.Entry(self.searchContainer,width=60,font=("Times",14))
+        self.searchBar.bind("<KeyRelease>",self.searchUpdate)
         self.searchBar.grid(row=0,column=1)
 
+        self.resultsContainer = tk.Frame(self.myParent)
+        self.resultsContainer.grid(row=1,column=0)
+
         self.formContainer = tk.Frame(self.myParent)
-        self.formContainer.grid(row=1,column=0)
+        self.formContainer.grid(row=2,column=0)
 
         self.buttonContainer = tk.Frame(self.myParent)
-        self.buttonContainer.grid(row=2,column=0)
+        self.buttonContainer.grid(row=3,column=0)
 
         self.editButton = tk.Button(self.buttonContainer)
         self.editButton.configure(text="Edit")
@@ -30,6 +36,29 @@ class DbViewer:
         self.closeButton = tk.Button(self.buttonContainer, command=self.closeViewer)
         self.closeButton.configure(text="Close")
         self.closeButton.grid(row=0,column=1)
+
+    def searchUpdate(self,event):
+        for result in self.searchResults:
+            result.destroy()
+        self.searchResults=[]
+        if self.searchBar.get() == "":
+            self.resultsContainer.grid_forget()
+        else:
+            self.resultsContainer.grid(row=1,column=0)
+            value = ('%'+self.searchBar.get()+'%',)
+            self.myDBcursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = self.myDBcursor.fetchall()
+            searchString = ""
+            for table in tables:
+                searchString += "SELECT name FROM " + table[0] + " WHERE name LIKE '" + value[0] + "' UNION ALL "
+            searchString = searchString[:-10]
+            #print(searchString)
+            results = self.myDBcursor.execute(searchString)
+            i = 0
+            for row in results:
+                self.searchResults.append(tk.Label(self.resultsContainer,text=row[0]))
+                self.searchResults[i].grid(row=i,column=0)
+                i += 1
 
     def closeViewer(self):
         print("Close Database Viewer")
@@ -80,7 +109,7 @@ class ArticleBuilder:
         self.closeButton.grid(row=0,column=1)
 
     def closeBuilder(self):
-        print("Close " + self.formType + " Builder")
+        #print("Close " + self.formType + " Builder")
         self.myParent.destroy()
         del self.myParent
         del self.formContainer
@@ -108,6 +137,7 @@ class ArticleBuilder:
         insertString = insertString[:-2]
         tableString += ")"
         insertString += ")"
+
         #print(tableString)
         #print(insertString)
         self.myDBcursor.execute(tableString)
@@ -122,8 +152,10 @@ class DbBuilder:
         self.myDB = database
         self.myDBcursor = self.myDB.cursor()
 
-        self.personBuilder = None
+        self.characterBuilder = None
+        self.raceBuilder = None
         self.geographyBuilder = None
+        self.itemBuilder = None
 
         self.dbViewer = None
 
@@ -133,19 +165,29 @@ class DbBuilder:
         self.buttonContainer = tk.Frame(self.myParent)
         self.buttonContainer.grid(row=1)
 
-        buttons = {"Person":self.openPersonBuilder,"Geography":self.openGeographyBuilder}
+        buttons = {"Character":self.openCharacterBuilder,"Race":self.openRaceBuilder,"Geography":self.openGeographyBuilder,
+                "Item":self.openItemBuilder}
         self.buttons = {}
         row = 0
         column = 0
         numCols = 5
-        for button,command in buttons.items():
+        for key in sorted(buttons.keys()):
             if column == numCols:
                 column = 0
                 row += 1
-            self.buttons[button] = tk.Button(self.articleContainer, command=command)
-            self.buttons[button].configure(text=button)
-            self.buttons[button].grid(row=row,column=column)
+            self.buttons[key] = tk.Button(self.articleContainer, command=buttons[key])
+            self.buttons[key].configure(text=key)
+            self.buttons[key].grid(row=row,column=column)
             column += 1
+
+        #for button,command in buttons.items():
+        #    if column == numCols:
+        #        column = 0
+        #        row += 1
+        #    self.buttons[button] = tk.Button(self.articleContainer, command=command)
+        #    self.buttons[button].configure(text=button)
+        #    self.buttons[button].grid(row=row,column=column)
+        #    column += 1
 
         self.viewerButton = tk.Button(self.buttonContainer, command=self.openViewer)
         self.viewerButton.configure(text="Viewer")
@@ -155,24 +197,34 @@ class DbBuilder:
         self.closeButton.configure(text="Close")
         self.closeButton.grid(row=0,column=1)
 
-    def openPersonBuilder(self):
+    def openCharacterBuilder(self):
         formDict = {"Name":"Entry","Description":"Text"
-                ,"Gender":"Entry","Race":"Entry"
+                ,"Gender":"Entry","Race":"Entry","Age":"Entry"
                 ,"Skin Color":"Entry","Hair Color":"Entry","Eye Color":"Entry"
                 ,"Aspects":"Text","Skills":"Text","Stunts":"Text"}
-        if self.personBuilder==None or self.personBuilder.cleared:
-            self.personBuilder = ArticleBuilder(self.myDB,"Person",formDict)
+        if self.characterBuilder==None or self.characterBuilder.cleared:
+            self.characterBuilder = ArticleBuilder(self.myDB,"Character",formDict)
+
+    def openRaceBuilder(self):
+        formDict = {"Name":"Entry","Appearance":"Text","Culture":"Text","Location":"Text"}
+        if self.raceBuilder==None or self.raceBuilder.cleared:
+            self.raceBuilder = ArticleBuilder(self.myDB,"Race",formDict)
 
     def openGeographyBuilder(self):
-        formDict = {"Name":"Entry","Description":"Text"}
+        formDict = {"Name":"Entry","Description":"Text","Location":"Entry"}
         if self.geographyBuilder==None or self.geographyBuilder.cleared:
             self.geographyBuilder = ArticleBuilder(self.myDB,"Geography",formDict)
+
+    def openItemBuilder(self):
+        formDict = {"Name":"Entry","Description":"Text","Aspects":"Text"}
+        if self.itemBuilder==None or self.itemBuilder.cleared:
+            self.itemBuilder = ArticleBuilder(self.myDB,"Item",formDict)
 
     def openViewer(self):
         self.dbViewer = DbViewer(self.myDB)
 
     def closeBuilder(self):
-        print("Close Database Builder")
+        #print("Close Database Builder")
         self.myDB.close()
         self.myParent.destroy()
 
