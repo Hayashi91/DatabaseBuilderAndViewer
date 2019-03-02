@@ -67,6 +67,8 @@ class DbViewer:
             results = self.myDBcursor.execute(searchString)
             i = 0
             for row in results:
+                if i > 4:
+                    break
                 self.searchResults.append(tk.Label(self.resultsContainer,text=row[0]))
                 self.searchResults[i].grid(row=i,column=0)
                 i += 1
