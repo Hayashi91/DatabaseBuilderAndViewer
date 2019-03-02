@@ -129,9 +129,9 @@ class DbViewer:
         insertString = "UPDATE " + self.result[0] + " SET "
         for label,entry in self.entries.items():
             if type(entry)==tk.Entry:
-                insertString += "'"+label+"'='"+entry.get()+"', "
+                insertString += "'"+label+"'='"+entry.get().replace("'","''")+"', "
             if type(entry)==tk.Text:
-                insertString += "'"+label+"'='"+entry.get(0.0,tk.END)+"', "
+                insertString += "'"+label+"'='"+entry.get(0.0,tk.END).replace("'","''")+"', "
         insertString = insertString[:-2]
         insertString += " WHERE rowid=" + self.result[1]
 
@@ -213,9 +213,9 @@ class ArticleBuilder:
             #print(type(entry))
             tableString += "'"+label + "', "
             if type(entry)==tk.Entry:
-                insertString += "'" + entry.get() + "', "
+                insertString += "'" + entry.get().replace("'","''") + "', "
             if type(entry)==tk.Text:
-                insertString += "'" + entry.get(0.0,tk.END) + "', "
+                insertString += "'" + entry.get(0.0,tk.END).replace("'","''") + "', "
         tableString = tableString[:-2]
         insertString = insertString[:-2]
         tableString += ")"
