@@ -14,12 +14,13 @@ class Article:
         self.forms = forms
 
 class DbViewer:
-    def __init__(self,db):
+    def __init__(self,db,articles):
         self.cleared = False
         self.myParent = tk.Tk()
         self.myParent.title("Database Viewer")
         self.myDB = db
         self.myDBcursor = self.myDB.cursor()
+        self.articles = articles
 
         self.searchResults = []
 
@@ -36,6 +37,9 @@ class DbViewer:
 
         self.formContainer = tk.Frame(self.myParent)
         self.formContainer.grid(row=2,column=0)
+
+        self.labels = {}
+        self.entries = {}
 
         self.buttonContainer = tk.Frame(self.myParent)
         self.buttonContainer.grid(row=3,column=0)
@@ -64,18 +68,53 @@ class DbViewer:
                 searchString = "SELECT rowid, name FROM " + table[0] + " WHERE name LIKE '" + value[0] + "'"
                 tmp = self.myDBcursor.execute(searchString)
                 for row in tmp:
-                    results.append([table[0]+"-"+str(row[0]),row[1]])
+                    results.append([table[0],str(row[0]),row[1]])
             if len(results) == 0:
                 self.resultsContainer.grid_forget()
             else:
                 i=0
                 for result in results:
-                    if i > 4:
-                        break
                     #print(result)
-                    self.searchResults.append(tk.Label(self.resultsContainer,text=result[0]+" "+result[1]))
+                    self.searchResults.append(tk.Button(self.resultsContainer,
+                        text=result[2],command=lambda res=result: self.openSearchResult(res)))
                     self.searchResults[i].grid(row=i,column=0)
                     i += 1
+                    if i > 4:
+                        break
+
+    def openSearchResult(self,result):
+        #print("Opening Search Result")
+        #print(result[0]+"-"+result[1]+" "+result[2])
+        print(self.entries)
+        for name,label in self.labels.items():
+            label.destroy()
+        for name,form in self.entries.items():
+            form.destroy()
+        self.entries = {}
+        self.myDBcursor.execute("SELECT * FROM "+result[0]+" WHERE rowid = ?",result[1])
+        info = self.myDBcursor.fetchone()
+        article = None
+        for art in self.articles:
+            if art.name == result[0]:
+                article = art
+        #print(info)
+        #print(article.forms)
+        row=0
+        for form in article.forms:
+            #print(form + " " + str(article.forms[form]) + ": " + info[row])
+            self.labels[form] = tk.Label(self.formContainer,text=form+":")
+            self.labels[form].grid(row=row,column=0,sticky=tk.NE)
+            if article.forms[form]==Form.entry:
+                self.entries[form] = tk.Entry(self.formContainer,width=60,font=("Times",14))
+                self.entries[form].insert(0,info[row])
+                self.entries[form].configure(state=tk.DISABLED,disabledforeground="black")
+            if article.forms[form]==Form.text:
+                self.entries[form] = tk.Text(self.formContainer,height=5,width=60,font=("Times",14))
+                self.entries[form].insert("1.0",info[row])
+                self.entries[form].configure(state=tk.DISABLED)
+            self.entries[form].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
+            self.entries[form].grid(row=row,column=1)
+            row += 1
 
     def closeViewer(self):
         #print("Close Database Viewer")
@@ -216,7 +255,7 @@ class DbBuilder:
             self.builders[article.name] = ArticleBuilder(self.myDB,article)
 
     def openViewer(self):
-        self.dbViewer = DbViewer(self.myDB)
+        self.dbViewer = DbViewer(self.myDB,self.articles)
 
     def closeBuilder(self):
         #print("Close Database Builder")
