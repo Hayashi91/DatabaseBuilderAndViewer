@@ -59,22 +59,26 @@ class DbViewer:
             value = ('%'+self.searchBar.get()+'%',)
             self.myDBcursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = self.myDBcursor.fetchall()
-            searchString = ""
+            results = []
             for table in tables:
-                searchString += "SELECT name FROM " + table[0] + " WHERE name LIKE '" + value[0] + "' UNION ALL "
-            searchString = searchString[:-10]
-            #print(searchString)
-            results = self.myDBcursor.execute(searchString)
-            i = 0
-            for row in results:
-                if i > 4:
-                    break
-                self.searchResults.append(tk.Label(self.resultsContainer,text=row[0]))
-                self.searchResults[i].grid(row=i,column=0)
-                i += 1
+                searchString = "SELECT rowid, name FROM " + table[0] + " WHERE name LIKE '" + value[0] + "'"
+                tmp = self.myDBcursor.execute(searchString)
+                for row in tmp:
+                    results.append([table[0]+"-"+str(row[0]),row[1]])
+            if len(results) == 0:
+                self.resultsContainer.grid_forget()
+            else:
+                i=0
+                for result in results:
+                    if i > 4:
+                        break
+                    #print(result)
+                    self.searchResults.append(tk.Label(self.resultsContainer,text=result[0]+" "+result[1]))
+                    self.searchResults[i].grid(row=i,column=0)
+                    i += 1
 
     def closeViewer(self):
-        print("Close Database Viewer")
+        #print("Close Database Viewer")
         self.myParent.destroy()
         del self.myParent
         del self.myDB
@@ -178,13 +182,6 @@ class DbBuilder:
         self.builders = {}
         for article in self.articles:
             self.builders[article.name] = None
-
-        self.characterBuilder = None
-        self.raceBuilder = None
-        self.geographyBuilder = None
-        self.itemBuilder = None
-
-        self.dbViewer = None
 
         self.articleContainer = tk.Frame(self.myParent)
         self.articleContainer.grid(row=0)
