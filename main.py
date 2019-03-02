@@ -1,6 +1,17 @@
 #!/Library/Frameworks/Python.framework/Versions/3.6/bin/python3
 import tkinter as tk
 import sqlite3 as sql
+from enum import Enum
+
+class Form(Enum):
+    entry = 1
+    text = 2
+    image = 3
+
+class Article:
+    def __init__(self,name,forms):
+        self.name = name
+        self.forms = forms
 
 class DbViewer:
     def __init__(self,db):
@@ -74,10 +85,10 @@ class DbViewer:
         self.cleared = True
 
 class ArticleBuilder:
-    def __init__(self,db,formType,formEntries):
+    def __init__(self,db,article):
         self.cleared = False
         self.myParent = tk.Tk()
-        self.formType = formType
+        self.formType = article.name
         self.myParent.title(self.formType+" Builder")
         self.myDB = db
         self.myDBcursor = self.myDB.cursor()
@@ -87,11 +98,11 @@ class ArticleBuilder:
 
         row=0
         self.entries = {}
-        for label,form in formEntries.items():
+        for label,form in article.forms.items():
             tk.Label(self.formContainer,text=label+":").grid(row=row,column=0,sticky=tk.NE)
-            if form=="Entry":
+            if form==Form.entry:
                 self.entries[label] = tk.Entry(self.formContainer,width=60,font=("Times",14))
-            if form=="Text":
+            if form==Form.text:
                 self.entries[label] = tk.Text(self.formContainer,height=5,width=60,font=("Times",14))
             self.entries[label].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
             self.entries[label].grid(row=row,column=1)
@@ -123,7 +134,7 @@ class ArticleBuilder:
         self.cleared=True
 
     def saveArticle(self):
-        print("Saving " + self.formType + " Article")
+        #print("Saving " + self.formType + " Article")
         tableString = "CREATE TABLE IF NOT EXISTS " + self.formType + "("
         insertString = "INSERT INTO " + self.formType + " VALUES ("
         for label,entry in self.entries.items():
@@ -152,6 +163,20 @@ class DbBuilder:
         self.myDB = database
         self.myDBcursor = self.myDB.cursor()
 
+        self.articles=[]
+        self.articles.append(Article("Character",{"Name":Form.entry,"Description":Form.text,
+            "Gender":Form.entry,"Race":Form.entry,"Age":Form.entry,
+            "Skin Color":Form.entry,"Hair Color":Form.entry,"Eye Color":Form.entry,
+            "Aspects":Form.text,"Skills":Form.text,"Stunts":Form.text}))
+        self.articles.append(Article("Race",{"Name":Form.entry,"Description":Form.text,"Appearance":Form.text,
+            "Culture":Form.text,"Location":Form.text}))
+        self.articles.append(Article("Geography",{"Name":Form.entry,"Description":Form.text,"Location":Form.entry}))
+        self.articles.append(Article("Item",{"Name":Form.entry,"Description":Form.text,"Aspects":Form.text}))
+
+        self.builders = {}
+        for article in self.articles:
+            self.builders[article.name] = None
+
         self.characterBuilder = None
         self.raceBuilder = None
         self.geographyBuilder = None
@@ -165,29 +190,19 @@ class DbBuilder:
         self.buttonContainer = tk.Frame(self.myParent)
         self.buttonContainer.grid(row=1)
 
-        buttons = {"Character":self.openCharacterBuilder,"Race":self.openRaceBuilder,"Geography":self.openGeographyBuilder,
-                "Item":self.openItemBuilder}
         self.buttons = {}
         row = 0
         column = 0
         numCols = 5
-        for key in sorted(buttons.keys()):
+        for article in self.articles:
             if column == numCols:
                 column = 0
                 row += 1
-            self.buttons[key] = tk.Button(self.articleContainer, command=buttons[key])
-            self.buttons[key].configure(text=key)
-            self.buttons[key].grid(row=row,column=column)
+            self.buttons[article.name] = tk.Button(self.articleContainer,
+                    command=lambda art=article: self.openBuilder(art))
+            self.buttons[article.name].configure(text=article.name)
+            self.buttons[article.name].grid(row=row,column=column)
             column += 1
-
-        #for button,command in buttons.items():
-        #    if column == numCols:
-        #        column = 0
-        #        row += 1
-        #    self.buttons[button] = tk.Button(self.articleContainer, command=command)
-        #    self.buttons[button].configure(text=button)
-        #    self.buttons[button].grid(row=row,column=column)
-        #    column += 1
 
         self.viewerButton = tk.Button(self.buttonContainer, command=self.openViewer)
         self.viewerButton.configure(text="Viewer")
@@ -197,28 +212,9 @@ class DbBuilder:
         self.closeButton.configure(text="Close")
         self.closeButton.grid(row=0,column=1)
 
-    def openCharacterBuilder(self):
-        formDict = {"Name":"Entry","Description":"Text"
-                ,"Gender":"Entry","Race":"Entry","Age":"Entry"
-                ,"Skin Color":"Entry","Hair Color":"Entry","Eye Color":"Entry"
-                ,"Aspects":"Text","Skills":"Text","Stunts":"Text"}
-        if self.characterBuilder==None or self.characterBuilder.cleared:
-            self.characterBuilder = ArticleBuilder(self.myDB,"Character",formDict)
-
-    def openRaceBuilder(self):
-        formDict = {"Name":"Entry","Appearance":"Text","Culture":"Text","Location":"Text"}
-        if self.raceBuilder==None or self.raceBuilder.cleared:
-            self.raceBuilder = ArticleBuilder(self.myDB,"Race",formDict)
-
-    def openGeographyBuilder(self):
-        formDict = {"Name":"Entry","Description":"Text","Location":"Entry"}
-        if self.geographyBuilder==None or self.geographyBuilder.cleared:
-            self.geographyBuilder = ArticleBuilder(self.myDB,"Geography",formDict)
-
-    def openItemBuilder(self):
-        formDict = {"Name":"Entry","Description":"Text","Aspects":"Text"}
-        if self.itemBuilder==None or self.itemBuilder.cleared:
-            self.itemBuilder = ArticleBuilder(self.myDB,"Item",formDict)
+    def openBuilder(self,article):
+        if self.builders[article.name] == None or self.builders[article.name].cleared:
+            self.builders[article.name] = ArticleBuilder(self.myDB,article)
 
     def openViewer(self):
         self.dbViewer = DbViewer(self.myDB)
