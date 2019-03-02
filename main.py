@@ -44,7 +44,7 @@ class DbViewer:
         self.buttonContainer = tk.Frame(self.myParent)
         self.buttonContainer.grid(row=3,column=0)
 
-        self.editButton = tk.Button(self.buttonContainer)
+        self.editButton = tk.Button(self.buttonContainer, command=self.editSearchResult)
         self.editButton.configure(text="Edit")
         self.editButton.grid(row=0,column=0)
 
@@ -56,6 +56,7 @@ class DbViewer:
         for result in self.searchResults:
             result.destroy()
         self.searchResults=[]
+        self.formContainer.grid_forget()
         if self.searchBar.get() == "":
             self.resultsContainer.grid_forget()
         else:
@@ -77,19 +78,22 @@ class DbViewer:
                     #print(result)
                     self.searchResults.append(tk.Button(self.resultsContainer,
                         text=result[2],command=lambda res=result: self.openSearchResult(res)))
-                    self.searchResults[i].grid(row=i,column=0)
+                    self.searchResults[i].grid(row=0,column=i)
                     i += 1
                     if i > 4:
                         break
+                self.openSearchResult(results[0])
 
     def openSearchResult(self,result):
         #print("Opening Search Result")
         #print(result[0]+"-"+result[1]+" "+result[2])
-        print(self.entries)
+        #print(self.entries)
+        self.formContainer.grid(row=2,column=0)
         for name,label in self.labels.items():
             label.destroy()
         for name,form in self.entries.items():
             form.destroy()
+        self.result = result
         self.entries = {}
         self.myDBcursor.execute("SELECT * FROM "+result[0]+" WHERE rowid = ?",result[1])
         info = self.myDBcursor.fetchone()
@@ -115,6 +119,29 @@ class DbViewer:
             self.entries[form].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
             self.entries[form].grid(row=row,column=1)
             row += 1
+
+    def editSearchResult(self):
+        for name,entry in self.entries.items():
+            entry.configure(state=tk.NORMAL)
+        self.editButton.configure(text="Save",command=self.saveEditedResult)
+
+    def saveEditedResult(self):
+        insertString = "UPDATE " + self.result[0] + " SET "
+        for label,entry in self.entries.items():
+            if type(entry)==tk.Entry:
+                insertString += "'"+label+"'='"+entry.get()+"', "
+            if type(entry)==tk.Text:
+                insertString += "'"+label+"'='"+entry.get(0.0,tk.END)+"', "
+        insertString = insertString[:-2]
+        insertString += " WHERE rowid=" + self.result[1]
+
+        #print(insertString)
+        self.myDBcursor.execute(insertString)
+        self.myDB.commit()
+
+        for name,entry in self.entries.items():
+            entry.configure(state=tk.DISABLED)
+        self.editButton.configure(text="Edit",command=self.editSearchResult)
 
     def closeViewer(self):
         #print("Close Database Viewer")
@@ -184,7 +211,7 @@ class ArticleBuilder:
         insertString = "INSERT INTO " + self.formType + " VALUES ("
         for label,entry in self.entries.items():
             #print(type(entry))
-            tableString += label + ", "
+            tableString += "'"+label + "', "
             if type(entry)==tk.Entry:
                 insertString += "'" + entry.get() + "', "
             if type(entry)==tk.Text:
