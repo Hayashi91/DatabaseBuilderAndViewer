@@ -35,22 +35,28 @@ class DbViewer:
         self.resultsContainer = tk.Frame(self.myParent)
         self.resultsContainer.grid(row=1,column=0)
 
+        self.bookmarkContainer = tk.Frame(self.myParent)
+        self.bookmarkContainer.grid(row=2,column=0)
+
+        self.bookmarks = {}
+
         self.formContainer = tk.Frame(self.myParent)
-        self.formContainer.grid(row=2,column=0)
+        self.formContainer.grid(row=3,column=0)
 
         self.labels = {}
         self.entries = {}
 
         self.buttonContainer = tk.Frame(self.myParent)
-        self.buttonContainer.grid(row=3,column=0)
+        self.buttonContainer.grid(row=4,column=0)
 
-        self.editButton = tk.Button(self.buttonContainer, command=self.editSearchResult)
-        self.editButton.configure(text="Edit")
+        self.editButton = tk.Button(self.buttonContainer,text="Edit",command=self.editSearchResult)
         self.editButton.grid(row=0,column=0)
 
-        self.closeButton = tk.Button(self.buttonContainer, command=self.closeViewer)
-        self.closeButton.configure(text="Close")
-        self.closeButton.grid(row=0,column=1)
+        self.bookmarkButton = tk.Button(self.buttonContainer,text="Bookmark",command=self.bookmarkResult)
+        self.bookmarkButton.grid(row=0,column=1)
+
+        self.closeButton = tk.Button(self.buttonContainer,text="Close",command=self.closeViewer)
+        self.closeButton.grid(row=0,column=2)
 
     def searchUpdate(self,event):
         for result in self.searchResults:
@@ -88,7 +94,7 @@ class DbViewer:
         #print("Opening Search Result")
         #print(result[0]+"-"+result[1]+" "+result[2])
         #print(self.entries)
-        self.formContainer.grid(row=2,column=0)
+        self.formContainer.grid(row=3,column=0)
         for name,label in self.labels.items():
             label.destroy()
         for name,form in self.entries.items():
@@ -142,6 +148,23 @@ class DbViewer:
         for name,entry in self.entries.items():
             entry.configure(state=tk.DISABLED)
         self.editButton.configure(text="Edit",command=self.editSearchResult)
+
+    def bookmarkResult(self):
+        bookmarkKey = self.result[0]+"-"+self.result[1]
+        self.bookmarkContainer.grid(row=2,column=0)
+        if bookmarkKey not in self.bookmarks:
+            self.bookmarks[bookmarkKey] = tk.Button(self.bookmarkContainer,text=self.result[2],command=lambda res=self.result: self.openSearchResult(res))
+            self.bookmarks[bookmarkKey].grid(row=0,column=len(self.bookmarks)-1)
+        else:
+            self.bookmarks[bookmarkKey].destroy()
+            del self.bookmarks[bookmarkKey]
+            if len(self.bookmarks) == 0:
+                self.bookmarkContainer.grid_forget()
+            else:
+                col = 0
+                for key,bookmark in self.bookmarks.items():
+                    bookmark.grid(row=0,column=col)
+                    col += 1
 
     def closeViewer(self):
         #print("Close Database Viewer")
