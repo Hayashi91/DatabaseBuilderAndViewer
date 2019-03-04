@@ -40,7 +40,7 @@ class DbViewer:
 
         self.bookmarks = {}
 
-        self.formCanvas = tk.Canvas(self.myParent,width=580,height=0)
+        self.formCanvas = tk.Canvas(self.myParent)
         self.formCanvas.config(highlightthickness=0)
         #self.formCanvas.grid(row=3,column=0)
 
@@ -142,7 +142,8 @@ class DbViewer:
             self.entries[form].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
             self.entries[form].grid(row=row,column=1)
             row += 1
-        self.formCanvas.config(height=min(400,self.formContainer.winfo_height()))
+        self.formCanvas.config(height=min(400,self.formContainer.winfo_height()),
+                width=self.formContainer.winfo_width())
 
     def editSearchResult(self):
         for name,entry in self.entries.items():
@@ -206,7 +207,7 @@ class ArticleBuilder:
         self.myDB = db
         self.myDBcursor = self.myDB.cursor()
 
-        self.formCanvas = tk.Canvas(self.myParent,width=580,height=400)
+        self.formCanvas = tk.Canvas(self.myParent)
         self.formCanvas.config(highlightthickness=0)
         self.formCanvas.grid(row=0,column=0)
 
@@ -246,6 +247,8 @@ class ArticleBuilder:
 
     def fixScrollRegion(self,event):
         self.formCanvas.config(scrollregion=self.formCanvas.bbox("all"))
+        self.formCanvas.config(height=min(400,self.formContainer.winfo_height()),
+                width=self.formContainer.winfo_width())
 
     def closeBuilder(self):
         #print("Close " + self.formType + " Builder")
