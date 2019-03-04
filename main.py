@@ -40,8 +40,20 @@ class DbViewer:
 
         self.bookmarks = {}
 
-        self.formContainer = tk.Frame(self.myParent)
-        self.formContainer.grid(row=3,column=0)
+        self.formCanvas = tk.Canvas(self.myParent,width=580,height=0)
+        self.formCanvas.config(highlightthickness=0)
+        #self.formCanvas.grid(row=3,column=0)
+
+        self.formContainer = tk.Frame(self.formCanvas)
+        #self.formContainer.grid(row=3,column=0)
+
+        self.formScrollbar = tk.Scrollbar(self.myParent,command=self.formCanvas.yview)
+        #self.formScrollbar.grid(row=3,column=1,sticky=tk.NS)
+
+        self.formCanvas.config(yscrollcommand=self.formScrollbar.set)
+        self.formCanvas.create_window(0,0,window=self.formContainer,anchor="nw")
+
+        self.formContainer.bind("<Configure>",self.fixScrollRegion)
 
         self.labels = {}
         self.entries = {}
@@ -62,7 +74,8 @@ class DbViewer:
         for result in self.searchResults:
             result.destroy()
         self.searchResults=[]
-        self.formContainer.grid_forget()
+        self.formCanvas.grid_forget()
+        self.formScrollbar.grid_forget()
         if self.searchBar.get() == "":
             self.resultsContainer.grid_forget()
         else:
@@ -90,11 +103,15 @@ class DbViewer:
                         break
                 self.openSearchResult(results[0])
 
+    def fixScrollRegion(self,event):
+        self.formCanvas.config(scrollregion=self.formCanvas.bbox("all"))
+
     def openSearchResult(self,result):
         #print("Opening Search Result")
         #print(result[0]+"-"+result[1]+" "+result[2])
         #print(self.entries)
-        self.formContainer.grid(row=3,column=0)
+        self.formCanvas.grid(row=3,column=0)
+        self.formScrollbar.grid(row=3,column=1,sticky=tk.NS)
         for name,label in self.labels.items():
             label.destroy()
         for name,form in self.entries.items():
@@ -125,6 +142,7 @@ class DbViewer:
             self.entries[form].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
             self.entries[form].grid(row=row,column=1)
             row += 1
+        self.formCanvas.config(height=min(400,self.formContainer.winfo_height()))
 
     def editSearchResult(self):
         for name,entry in self.entries.items():
@@ -188,8 +206,20 @@ class ArticleBuilder:
         self.myDB = db
         self.myDBcursor = self.myDB.cursor()
 
-        self.formContainer = tk.Frame(self.myParent)
-        self.formContainer.grid(row=0,column=0)
+        self.formCanvas = tk.Canvas(self.myParent,width=580,height=400)
+        self.formCanvas.config(highlightthickness=0)
+        self.formCanvas.grid(row=0,column=0)
+
+        self.formContainer = tk.Frame(self.formCanvas)
+        #self.formContainer.grid(row=0,column=0)
+
+        self.formScrollbar = tk.Scrollbar(self.myParent,command=self.formCanvas.yview)
+        self.formScrollbar.grid(row=0,column=1,sticky=tk.NS)
+
+        self.formCanvas.config(yscrollcommand=self.formScrollbar.set)
+        self.formCanvas.create_window(0,0,window=self.formContainer,anchor="nw")
+
+        self.formContainer.bind("<Configure>",self.fixScrollRegion)
 
         row=0
         self.entries = {}
@@ -213,6 +243,9 @@ class ArticleBuilder:
         self.closeButton = tk.Button(self.buttonContainer, command=self.closeBuilder)
         self.closeButton.configure(text="Close")
         self.closeButton.grid(row=0,column=1)
+
+    def fixScrollRegion(self,event):
+        self.formCanvas.config(scrollregion=self.formCanvas.bbox("all"))
 
     def closeBuilder(self):
         #print("Close " + self.formType + " Builder")
