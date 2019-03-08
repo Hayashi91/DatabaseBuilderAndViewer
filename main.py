@@ -2,6 +2,7 @@
 import tkinter as tk
 import sqlite3 as sql
 from enum import Enum
+import math
 
 class Form(Enum):
     entry = 1
@@ -12,6 +13,63 @@ class Article:
     def __init__(self,name,forms):
         self.name = name
         self.forms = forms
+
+def listenForMention(self,event,entry,loc):
+    #print("Listen for mention")
+    for mention in self.mentions:
+        mention.destroy()
+    self.mentions=[]
+    self.mentionsContainer.grid_forget()
+    text = ""
+    if type(entry) == tk.Entry:
+        #print("Entry")
+        text = entry.get()
+    elif type(entry) == tk.Text:
+        #print("Text")
+        text = entry.get(1.0,tk.END).strip("\n") #[:-1] is to get rid of the newline character at the end.
+    #print(text)
+    if "@" in text and text[-1] != "@":
+        mention = text[text.find("@")+1:].split(" ")[0]
+        #print(mention)
+        self.myDBcursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = self.myDBcursor.fetchall()
+        results = []
+        for table in tables:
+            searchString = "SELECT rowid, name FROM " + table[0] + " WHERE name LIKE '%" + mention + "%'"
+            tmp = self.myDBcursor.execute(searchString)
+            for row in tmp:
+                results.append([table[0],str(row[0]),row[1]])
+        #print(results)
+        if len(results) > 0:
+            self.mentionsContainer.grid(row=loc,column=0)
+            col=0
+            for result in results:
+                #print(result)
+                self.mentions.append(tk.Button(self.mentionsContainer,
+                    command=lambda men=mention, res=result, entry=entry: createMention(self,men,res,entry),
+                    text=result[2]))
+                self.mentions[col].grid(row=0,column=col)
+                col += 1
+                if col > 4:
+                    break
+
+def createMention(self,mention,result,entry):
+    #print(mention)
+    #print(result)
+    #print(entry)
+    mentionText = "#["+result[2]+"]{"+result[0]+"-"+result[1]+"}"
+    if type(entry) == tk.Entry:
+        entryText = entry.get().replace("@"+mention,mentionText)
+        entry.delete(0,tk.END)
+        entry.insert(0,entryText)
+    elif type(entry) == tk.Text:
+        entryText = entry.get(1.0,tk.END).replace("@"+mention,mentionText)
+        entry.delete(1.0,tk.END)
+        entry.insert(1.0,entryText)
+    for mention in self.mentions:
+        mention.destroy()
+    self.mentions=[]
+    self.mentionsContainer.grid_forget()
 
 class DbViewer:
     def __init__(self,db,articles):
@@ -58,8 +116,13 @@ class DbViewer:
         self.labels = {}
         self.entries = {}
 
+        self.mentionsContainer = tk.Frame(self.myParent)
+        self.mentionsContainer.grid(row=4,column=0)
+
+        self.mentions = []
+
         self.buttonContainer = tk.Frame(self.myParent)
-        self.buttonContainer.grid(row=4,column=0)
+        self.buttonContainer.grid(row=5,column=0)
 
         self.editButton = tk.Button(self.buttonContainer,text="Edit",command=self.editSearchResult)
         self.editButton.grid(row=0,column=0)
@@ -105,6 +168,8 @@ class DbViewer:
 
     def fixScrollRegion(self,event):
         self.formCanvas.config(scrollregion=self.formCanvas.bbox("all"))
+        self.formCanvas.config(height=min(400,self.formContainer.winfo_height()),
+                width=self.formContainer.winfo_width())
 
     def openSearchResult(self,result):
         #print("Opening Search Result")
@@ -142,21 +207,21 @@ class DbViewer:
             self.entries[form].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
             self.entries[form].grid(row=row,column=1)
             row += 1
-        self.formCanvas.config(height=min(400,self.formContainer.winfo_height()),
-                width=self.formContainer.winfo_width())
 
     def editSearchResult(self):
         for name,entry in self.entries.items():
             entry.configure(state=tk.NORMAL)
+            if name != "Name":
+                entry.bind("<KeyRelease>",lambda event, ent=entry, row=4: listenForMention(self,event,ent,row))
         self.editButton.configure(text="Save",command=self.saveEditedResult)
 
     def saveEditedResult(self):
         insertString = "UPDATE " + self.result[0] + " SET "
         for label,entry in self.entries.items():
             if type(entry)==tk.Entry:
-                insertString += "'"+label+"'='"+entry.get().replace("'","''")+"', "
+                insertString += "'"+label+"'='"+entry.get().replace("'","''").rstrip("\n")+"', "
             if type(entry)==tk.Text:
-                insertString += "'"+label+"'='"+entry.get(0.0,tk.END).replace("'","''")+"', "
+                insertString += "'"+label+"'='"+entry.get(1.0,tk.END).replace("'","''").rstrip("\n")+"', "
         insertString = insertString[:-2]
         insertString += " WHERE rowid=" + self.result[1]
 
@@ -231,11 +296,18 @@ class ArticleBuilder:
             if form==Form.text:
                 self.entries[label] = tk.Text(self.formContainer,height=5,width=60,font=("Times",14))
             self.entries[label].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
+            if label != "Name":
+                self.entries[label].bind("<KeyRelease>",lambda event, entry=self.entries[label], row=1: listenForMention(self,event,entry,row))
             self.entries[label].grid(row=row,column=1)
             row += 1
 
+        self.mentionsContainer = tk.Frame(self.myParent)
+        self.mentionsContainer.grid(row=1,column=0)
+
+        self.mentions = []
+
         self.buttonContainer = tk.Frame(self.myParent)
-        self.buttonContainer.grid(row=1,column=0)
+        self.buttonContainer.grid(row=2,column=0)
 
         self.saveButton = tk.Button(self.buttonContainer, command=self.saveArticle)
         self.saveButton.configure(text="Save")
@@ -247,7 +319,7 @@ class ArticleBuilder:
 
     def fixScrollRegion(self,event):
         self.formCanvas.config(scrollregion=self.formCanvas.bbox("all"))
-        self.formCanvas.config(height=min(400,self.formContainer.winfo_height()),
+        self.formCanvas.config(height=min(800,self.formContainer.winfo_height()),
                 width=self.formContainer.winfo_width())
 
     def closeBuilder(self):
@@ -270,11 +342,13 @@ class ArticleBuilder:
         insertString = "INSERT INTO " + self.formType + " VALUES ("
         for label,entry in self.entries.items():
             #print(type(entry))
-            tableString += "'"+label + "', "
+            tableString += "'"+label + "' "
             if type(entry)==tk.Entry:
-                insertString += "'" + entry.get().replace("'","''") + "', "
-            if type(entry)==tk.Text:
-                insertString += "'" + entry.get(0.0,tk.END).replace("'","''") + "', "
+                tableString += "TEXT, "
+                insertString += "'" + entry.get().replace("'","''").rstrip("\n") + "', "
+            elif type(entry)==tk.Text:
+                tableString += "TEXT, "
+                insertString += "'" + entry.get(0.0,tk.END).replace("'","''").rstrip("\n") + "', "
         tableString = tableString[:-2]
         insertString = insertString[:-2]
         tableString += ")"
@@ -299,10 +373,18 @@ class DbBuilder:
             "Gender":Form.entry,"Race":Form.entry,"Age":Form.entry,
             "Skin Color":Form.entry,"Hair Color":Form.entry,"Eye Color":Form.entry,
             "Aspects":Form.text,"Skills":Form.text,"Stunts":Form.text}))
-        self.articles.append(Article("Race",{"Name":Form.entry,"Description":Form.text,"Appearance":Form.text,
-            "Culture":Form.text,"Location":Form.text}))
-        self.articles.append(Article("Geography",{"Name":Form.entry,"Description":Form.text,"Location":Form.entry}))
+        self.articles.append(Article("Race",{"Name":Form.entry,"Description":Form.text,
+            "Appearance":Form.text,"Culture":Form.text,"Location":Form.entry}))
+        self.articles.append(Article("Geography",{"Name":Form.entry,"Description":Form.text,
+            "Location":Form.entry,"Aspects":Form.text}))
         self.articles.append(Article("Item",{"Name":Form.entry,"Description":Form.text,"Aspects":Form.text}))
+        self.articles.append(Article("Settlement",{"Name":Form.entry,"Description":Form.text,
+            "Type":Form.entry,"Location":Form.entry,"Aspects":Form.text}))
+        self.articles.append(Article("Building",{"Name":Form.entry,"Description":Form.text,
+            "Type":Form.entry,"Location":Form.entry,"Aspects":Form.text}))
+        self.articles.append(Article("Organization",{"Name":Form.entry,"Description":Form.text,
+            "Leaders":Form.text,"Location":Form.entry,"Aspects":Form.text}))
+        self.articles.sort(key=lambda x: x.name)
 
         self.builders = {}
         for article in self.articles:
@@ -317,7 +399,7 @@ class DbBuilder:
         self.buttons = {}
         row = 0
         column = 0
-        numCols = 5
+        numCols = round(math.sqrt(len(self.articles)))
         for article in self.articles:
             if column == numCols:
                 column = 0
