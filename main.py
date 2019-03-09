@@ -2,7 +2,9 @@
 import tkinter as tk
 import sqlite3 as sql
 from enum import Enum
+from PIL import Image, ImageTk
 import math
+import os.path
 
 class Form(Enum):
     entry = 1
@@ -13,6 +15,23 @@ class Article:
     def __init__(self,name,forms):
         self.name = name
         self.forms = forms
+
+def openImage(event,entry):
+    #print("Open Image")
+    fileLocation = entry.file.get()
+    if os.path.isfile(fileLocation):
+        #print(fileLocation)
+        image = Image.open(fileLocation)
+        width = 480
+        size = (width,int(width*image.size[1]/float(image.size[0])))
+        image = image.resize(size,Image.ANTIALIAS)
+        entry.photo = ImageTk.PhotoImage(image,master=entry.canvas)
+        #print(entry.photo)
+        entry.canvas.create_image((0,0),image=entry.photo,anchor=tk.NW)
+        entry.canvas.config(height=entry.photo.height(),width=entry.photo.width())
+    else:
+        entry.photo = None
+        entry.canvas.config(height=0)
 
 def listenForMention(self,event,entry,loc):
     #print("Listen for mention")
@@ -230,12 +249,24 @@ class DbViewer:
                 self.entries[form].insert("1.0",info[row])
                 self.mentionTag(self.entries[form])
                 self.entries[form].configure(state=tk.DISABLED)
-            if article.forms[form]==Form.text:
+            elif article.forms[form]==Form.text:
                 self.entries[form] = tk.Text(self.formContainer,height=5,width=60,font=("Times",14))
                 self.entries[form].insert("1.0",info[row])
                 self.mentionTag(self.entries[form])
                 self.entries[form].configure(state=tk.DISABLED)
-            self.entries[form].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
+            elif article.forms[form]==Form.image:
+                self.entries[form] = tk.Frame(self.formContainer)
+                self.entries[form].file = tk.Entry(self.entries[form],width=60,font=("Times",14),disabledforeground="black")
+                self.entries[form].file.configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
+                self.entries[form].file.insert(0,info[row])
+                self.entries[form].canvas = tk.Canvas(self.entries[form],height=0,width=490)
+                openImage(None,self.entries[form])
+                self.entries[form].file.grid(row=0,column=0)
+                self.entries[form].canvas.grid(row=1,column=0)
+                self.entries[form].file.configure(state=tk.DISABLED)
+
+            if article.forms[form] in (Form.entry,Form.text):
+                self.entries[form].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
             self.entries[form].grid(row=row,column=1)
             row += 1
         #print(self.mentionTags)
@@ -245,18 +276,22 @@ class DbViewer:
 
     def editSearchResult(self):
         for name,entry in self.entries.items():
-            entry.configure(state=tk.NORMAL)
-            text = entry.get("1.0",tk.END).rstrip("\n")
-            #print(text)
-            entry.delete("1.0",tk.END)
-            for name,tag in self.mentionTags.items():
-                #print(name + ":" + tag)
-                text = text.replace(name,"#["+name+"]{"+tag+"}")
+            if type(entry) in (tk.Entry,tk.Text):
+                entry.configure(state=tk.NORMAL)
+                text = entry.get("1.0",tk.END).rstrip("\n")
                 #print(text)
-            #print(text)
-            entry.insert("1.0",text)
-            if name != "Name":
-                entry.bind("<KeyRelease>",lambda event, ent=entry, row=4: listenForMention(self,event,ent,row))
+                entry.delete("1.0",tk.END)
+                for name,tag in self.mentionTags.items():
+                    #print(name + ":" + tag)
+                    text = text.replace(name,"#["+name+"]{"+tag+"}")
+                    #print(text)
+                #print(text)
+                entry.insert("1.0",text)
+                if name != "Name":
+                    entry.bind("<KeyRelease>",lambda event, ent=entry, row=4: listenForMention(self,event,ent,row))
+            elif type(entry) == tk.Frame:
+                entry.file.configure(state=tk.NORMAL)
+                entry.file.bind("<Return>",lambda event, entry=entry: openImage(event,entry))
         self.editButton.configure(text="Save",command=self.saveEditedResult)
 
     def saveEditedResult(self):
@@ -264,8 +299,10 @@ class DbViewer:
         for label,entry in self.entries.items():
             if type(entry)==tk.Entry:
                 insertString += "'"+label+"'='"+entry.get().replace("'","''").rstrip("\n")+"', "
-            if type(entry)==tk.Text:
+            elif type(entry)==tk.Text:
                 insertString += "'"+label+"'='"+entry.get(1.0,tk.END).replace("'","''").rstrip("\n")+"', "
+            elif type(entry)==tk.Frame:
+                insertString += "'"+label+"'='"+entry.file.get().replace("'","''").rstrip("\n")+"', "
         insertString = insertString[:-2]
         insertString += " WHERE rowid=" + self.result[1]
 
@@ -274,7 +311,10 @@ class DbViewer:
         self.myDB.commit()
 
         for name,entry in self.entries.items():
-            entry.configure(state=tk.DISABLED)
+            if type(entry) in (tk.Entry,tk.Text):
+                entry.configure(state=tk.DISABLED)
+            elif type(entry) == tk.Frame:
+                entry.file.configure(state=tk.DISABLED)
         self.editButton.configure(text="Edit",command=self.editSearchResult)
         self.openSearchResult(self.result)
 
@@ -339,10 +379,21 @@ class ArticleBuilder:
             tk.Label(self.formContainer,text=label+":").grid(row=row,column=0,sticky=tk.NE)
             if form==Form.entry:
                 self.entries[label] = tk.Text(self.formContainer,height=1,width=60,font=("Times",14))
-            if form==Form.text:
+            elif form==Form.text:
                 self.entries[label] = tk.Text(self.formContainer,height=5,width=60,font=("Times",14))
-            self.entries[label].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
-            if label != "Name":
+            elif form==Form.image:
+                self.entries[label] = tk.Frame(self.formContainer)
+                self.entries[label].file = tk.Entry(self.entries[label],width=60,font=("Times",14))
+                self.entries[label].file.config(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
+                self.entries[label].file.bind("<Return>",lambda event, entry=self.entries[label]: openImage(event,entry))
+                self.entries[label].canvas = tk.Canvas(self.entries[label],height=0,width=490)
+                self.entries[label].file.grid(row=0,column=0)
+                self.entries[label].canvas.grid(row=1,column=0)
+
+            if form in (Form.entry,Form.text):
+                self.entries[label].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
+
+            if label != "Name" and form != Form.image:
                 self.entries[label].bind("<KeyRelease>",
                         lambda event, entry=self.entries[label], row=1: listenForMention(self,event,entry,row))
             self.entries[label].grid(row=row,column=1)
@@ -366,7 +417,7 @@ class ArticleBuilder:
 
     def fixScrollRegion(self,event):
         self.formCanvas.config(scrollregion=self.formCanvas.bbox("all"))
-        self.formCanvas.config(height=min(800,self.formContainer.winfo_height()),
+        self.formCanvas.config(height=min(600,self.formContainer.winfo_height()),
                 width=self.formContainer.winfo_width())
 
     def closeBuilder(self):
@@ -396,6 +447,9 @@ class ArticleBuilder:
             elif type(entry)==tk.Text:
                 tableString += "TEXT, "
                 insertString += "'" + entry.get(0.0,tk.END).replace("'","''").rstrip("\n") + "', "
+            elif type(entry)==tk.Frame:
+                tableString += "TEXT, "
+                insertString += "'" + entry.file.get().replace("'","''").rstrip("\n") + "', "
         tableString = tableString[:-2]
         insertString = insertString[:-2]
         tableString += ")"
@@ -417,18 +471,19 @@ class DbBuilder:
 
         self.articles=[]
         self.articles.append(Article("Character",{"Name":Form.entry,"Description":Form.text,
-            "Gender":Form.entry,"Race":Form.entry,"Age":Form.entry,
+            "Picture":Form.image,"Gender":Form.entry,"Race":Form.entry,"Age":Form.entry,
             "Skin Color":Form.entry,"Hair Color":Form.entry,"Eye Color":Form.entry,
             "Aspects":Form.text,"Skills":Form.text,"Stunts":Form.text}))
         self.articles.append(Article("Race",{"Name":Form.entry,"Description":Form.text,
             "Appearance":Form.text,"Culture":Form.text,"Location":Form.entry}))
         self.articles.append(Article("Geography",{"Name":Form.entry,"Description":Form.text,
-            "Location":Form.entry,"Aspects":Form.text}))
-        self.articles.append(Article("Item",{"Name":Form.entry,"Description":Form.text,"Aspects":Form.text}))
+            "Map":Form.image,"Location":Form.entry,"Aspects":Form.text}))
+        self.articles.append(Article("Item",{"Name":Form.entry,"Description":Form.text,
+            "Picture":Form.image,"Aspects":Form.text}))
         self.articles.append(Article("Settlement",{"Name":Form.entry,"Description":Form.text,
-            "Type":Form.entry,"Location":Form.entry,"Aspects":Form.text}))
+            "Map":Form.image,"Type":Form.entry,"Location":Form.entry,"Aspects":Form.text}))
         self.articles.append(Article("Building",{"Name":Form.entry,"Description":Form.text,
-            "Type":Form.entry,"Location":Form.entry,"Aspects":Form.text}))
+            "Blueprint":Form.image,"Type":Form.entry,"Location":Form.entry,"Aspects":Form.text}))
         self.articles.append(Article("Organization",{"Name":Form.entry,"Description":Form.text,
             "Leaders":Form.text,"Location":Form.entry,"Aspects":Form.text}))
         self.articles.sort(key=lambda x: x.name)
