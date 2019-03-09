@@ -26,7 +26,7 @@ def listenForMention(self,event,entry,loc):
         text = entry.get()
     elif type(entry) == tk.Text:
         #print("Text")
-        text = entry.get(1.0,tk.END).strip("\n") #[:-1] is to get rid of the newline character at the end.
+        text = entry.get(1.0,tk.END).strip("\n")
     #print(text)
     if "@" in text and text[-1] != "@":
         mention = text[text.find("@")+1:].split(" ")[0]
@@ -81,6 +81,7 @@ class DbViewer:
         self.articles = articles
 
         self.searchResults = []
+        self.mentionTags = {}
 
         self.searchContainer = tk.Frame(self.myParent)
         self.searchContainer.grid(row=0,column=0)
@@ -171,10 +172,37 @@ class DbViewer:
         self.formCanvas.config(height=min(400,self.formContainer.winfo_height()),
                 width=self.formContainer.winfo_width())
 
+    def mentionTag(self,entry):
+        #print("Create mention button")
+        if type(entry) == tk.Entry:
+            print("Need to fix something.")
+        elif type(entry) == tk.Text:
+            #print("Text")
+            text = entry.get("1.0",tk.END).rstrip("\n")
+            if "#" in text:
+                entry.delete("1.0",tk.END)
+                for u in range(text.count("#")):
+                    #print("# in text")
+                    before = text[:text.find("#")]
+                    title = text[text.find("[")+1:text.find("]")]
+                    table = text[text.find("{")+1:text.find("-")]
+                    rowid = text[text.find("-")+1:text.find("}")]
+                    after = text[text.find("}")+1:]
+                    #print(before+"\n"+title+"\n"+table+"\n"+rowid+"\n"+after)
+                    entry.insert(tk.INSERT,before)
+                    entry.insert(tk.INSERT,title,(table+"-"+rowid,"italic"))
+                    entry.tag_bind(table+"-"+rowid,"<Button-1>",
+                            lambda event, res=[table,rowid,title]: self.openSearchResultEvent(event,res))
+                    text = after
+                    self.mentionTags[title]=table+"-"+rowid
+                entry.insert(tk.INSERT,text)
+                entry.tag_configure("italic",font=("Times",14,"italic"))
+
     def openSearchResult(self,result):
         #print("Opening Search Result")
         #print(result[0]+"-"+result[1]+" "+result[2])
         #print(self.entries)
+        self.editButton.configure(text="Edit",command=self.editSearchResult)
         self.formCanvas.grid(row=3,column=0)
         self.formScrollbar.grid(row=3,column=1,sticky=tk.NS)
         for name,label in self.labels.items():
@@ -183,6 +211,7 @@ class DbViewer:
             form.destroy()
         self.result = result
         self.entries = {}
+        self.mentionTags = {}
         self.myDBcursor.execute("SELECT * FROM "+result[0]+" WHERE rowid = ?",result[1])
         info = self.myDBcursor.fetchone()
         article = None
@@ -197,20 +226,35 @@ class DbViewer:
             self.labels[form] = tk.Label(self.formContainer,text=form+":")
             self.labels[form].grid(row=row,column=0,sticky=tk.NE)
             if article.forms[form]==Form.entry:
-                self.entries[form] = tk.Entry(self.formContainer,width=60,font=("Times",14))
-                self.entries[form].insert(0,info[row])
-                self.entries[form].configure(state=tk.DISABLED,disabledforeground="black")
+                self.entries[form] = tk.Text(self.formContainer,height=1,width=60,font=("Times",14))
+                self.entries[form].insert("1.0",info[row])
+                self.mentionTag(self.entries[form])
+                self.entries[form].configure(state=tk.DISABLED)
             if article.forms[form]==Form.text:
                 self.entries[form] = tk.Text(self.formContainer,height=5,width=60,font=("Times",14))
                 self.entries[form].insert("1.0",info[row])
+                self.mentionTag(self.entries[form])
                 self.entries[form].configure(state=tk.DISABLED)
             self.entries[form].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
             self.entries[form].grid(row=row,column=1)
             row += 1
+        #print(self.mentionTags)
+
+    def openSearchResultEvent(self,event,result):
+        self.openSearchResult(result)
 
     def editSearchResult(self):
         for name,entry in self.entries.items():
             entry.configure(state=tk.NORMAL)
+            text = entry.get("1.0",tk.END).rstrip("\n")
+            #print(text)
+            entry.delete("1.0",tk.END)
+            for name,tag in self.mentionTags.items():
+                #print(name + ":" + tag)
+                text = text.replace(name,"#["+name+"]{"+tag+"}")
+                #print(text)
+            #print(text)
+            entry.insert("1.0",text)
             if name != "Name":
                 entry.bind("<KeyRelease>",lambda event, ent=entry, row=4: listenForMention(self,event,ent,row))
         self.editButton.configure(text="Save",command=self.saveEditedResult)
@@ -232,12 +276,14 @@ class DbViewer:
         for name,entry in self.entries.items():
             entry.configure(state=tk.DISABLED)
         self.editButton.configure(text="Edit",command=self.editSearchResult)
+        self.openSearchResult(self.result)
 
     def bookmarkResult(self):
         bookmarkKey = self.result[0]+"-"+self.result[1]
         self.bookmarkContainer.grid(row=2,column=0)
         if bookmarkKey not in self.bookmarks:
-            self.bookmarks[bookmarkKey] = tk.Button(self.bookmarkContainer,text=self.result[2],command=lambda res=self.result: self.openSearchResult(res))
+            self.bookmarks[bookmarkKey] = tk.Button(self.bookmarkContainer,text=self.result[2],
+                    command=lambda res=self.result: self.openSearchResult(res))
             self.bookmarks[bookmarkKey].grid(row=0,column=len(self.bookmarks)-1)
         else:
             self.bookmarks[bookmarkKey].destroy()
@@ -292,12 +338,13 @@ class ArticleBuilder:
         for label,form in article.forms.items():
             tk.Label(self.formContainer,text=label+":").grid(row=row,column=0,sticky=tk.NE)
             if form==Form.entry:
-                self.entries[label] = tk.Entry(self.formContainer,width=60,font=("Times",14))
+                self.entries[label] = tk.Text(self.formContainer,height=1,width=60,font=("Times",14))
             if form==Form.text:
                 self.entries[label] = tk.Text(self.formContainer,height=5,width=60,font=("Times",14))
             self.entries[label].configure(borderwidth=1,relief=tk.SUNKEN,highlightcolor="steel blue")
             if label != "Name":
-                self.entries[label].bind("<KeyRelease>",lambda event, entry=self.entries[label], row=1: listenForMention(self,event,entry,row))
+                self.entries[label].bind("<KeyRelease>",
+                        lambda event, entry=self.entries[label], row=1: listenForMention(self,event,entry,row))
             self.entries[label].grid(row=row,column=1)
             row += 1
 
