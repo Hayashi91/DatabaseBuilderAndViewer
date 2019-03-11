@@ -470,22 +470,63 @@ class DbBuilder:
         self.myDBcursor = self.myDB.cursor()
 
         self.articles=[]
-        self.articles.append(Article("Character",{"Name":Form.entry,"Description":Form.text,
-            "Picture":Form.image,"Gender":Form.entry,"Race":Form.entry,"Age":Form.entry,
-            "Skin Color":Form.entry,"Hair Color":Form.entry,"Eye Color":Form.entry,
+        self.articles.append(Article("Character",{"Name":Form.entry,"Description":Form.text,"Picture":Form.image,
+            "Alt. Names":Form.entry,"Title":Form.entry,"Gender":Form.entry,"Race":Form.entry,
+            "Born-Died":Form.entry,"Age":Form.entry,"Appearance":Form.text,
             "Aspects":Form.text,"Skills":Form.text,"Stunts":Form.text}))
-        self.articles.append(Article("Race",{"Name":Form.entry,"Description":Form.text,
-            "Appearance":Form.text,"Culture":Form.text,"Location":Form.entry}))
+
+        self.articles.append(Article("Race",{"Name":Form.entry,"Description":Form.text,"Appearance":Form.text,
+            "Culture":Form.text,"Location":Form.entry,"Language":Form.entry,"Aspects":Form.text,"Names":Form.text}))
+
         self.articles.append(Article("Geography",{"Name":Form.entry,"Description":Form.text,
-            "Map":Form.image,"Location":Form.entry,"Aspects":Form.text}))
+            "Map":Form.image,"Type":Form.entry,"Alt. Names":Form.entry,
+            "Location":Form.entry,"Child Locations":Form.entry,"Aspects":Form.text}))
+
         self.articles.append(Article("Item",{"Name":Form.entry,"Description":Form.text,
-            "Picture":Form.image,"Aspects":Form.text}))
+            "Picture":Form.image,"Price":Form.entry,"Rarity":Form.entry,"Location":Form.entry,"Aspects":Form.text}))
+
         self.articles.append(Article("Settlement",{"Name":Form.entry,"Description":Form.text,
-            "Map":Form.image,"Type":Form.entry,"Location":Form.entry,"Aspects":Form.text}))
+            "Map":Form.image,"Type":Form.entry,"Alt. Names":Form.entry,"Population":Form.entry,"Government":Form.entry,
+            "Ruler":Form.entry,"Location":Form.entry,"Child Locations":Form.entry,"Aspects":Form.text}))
+
         self.articles.append(Article("Building",{"Name":Form.entry,"Description":Form.text,
-            "Blueprint":Form.image,"Type":Form.entry,"Location":Form.entry,"Aspects":Form.text}))
+            "Blueprint":Form.image,"Type":Form.entry,"Alt. Names":Form.entry,"Location":Form.entry,"Aspects":Form.text,
+            "Owner":Form.entry,"Denizens":Form.text,"Treasures":Form.text,"Hazards":Form.text,"Secrets":Form.text}))
+
         self.articles.append(Article("Organization",{"Name":Form.entry,"Description":Form.text,
-            "Leaders":Form.text,"Location":Form.entry,"Aspects":Form.text}))
+            "Type":Form.entry,"Alt. Names":Form.entry,"Leaders":Form.text,"Location":Form.entry,"Aspects":Form.text}))
+
+        self.articles.append(Article("Country",{"Name":Form.entry,"Description":Form.text,
+            "Type":Form.entry,"Alt. Names":Form.entry,"Leaders":Form.text,"Location":Form.entry,"Aspects":Form.text}))
+
+        self.articles.append(Article("Religion",{"Name":Form.entry,"Description":Form.text,
+            "Type":Form.entry,"Alt. Names":Form.entry,"Leaders":Form.text,"Location":Form.entry,"Aspects":Form.text}))
+
+        self.articles.append(Article("Language",{"Name":Form.entry,"Description":Form.text,
+            "Spoken By":Form.entry,"Based Off":Form.entry}))
+
+        self.articles.append(Article("Legend",{"Name":Form.entry,"Description":Form.text,
+            "Related Legends":Form.entry,"Related People":Form.entry,"Related Races":Form.entry,
+            "Related Locations":Form.entry,"Related Organizations":Form.entry,"Related Items":Form.entry}))
+
+        self.articles.append(Article("Profession",{"Name":Form.entry,"Description":Form.text,
+            "Skills":Form.text,"Aspects":Form.text,"Stunts":Form.text}))
+
+        self.articles.append(Article("Title",{"Name":Form.entry,"Description":Form.text,
+            "Type":Form.entry,"Alt. Names":Form.entry,"Reports To":Form.entry,"Related Org.":Form.entry}))
+
+        self.articles.append(Article("Technology",{"Name":Form.entry,"Description":Form.text,"Discovery":Form.text,
+            "Rarity":Form.entry,"Complexity":Form.entry,"Utility":Form.entry,"Manufacturing":Form.text,
+            "Inventor":Form.entry,"Parent Tech":Form.entry}))
+
+        self.articles.append(Article("Tradition",{"Name":Form.entry,"Description":Form.text,"History":Form.text,
+            "Execution":Form.text,"Components & Tools":Form.text,"Participants & Key Roles":Form.text,
+            "Observances":Form.text,"Related Locations":Form.text,"Related Races":Form.text}))
+
+        self.articles.append(Article("Vehicle",{"Name":Form.entry,"Description":Form.text,"Type":Form.entry,
+            "Nicknames":Form.entry,"Owner":Form.entry,"Price":Form.entry,"Size":Form.entry,"Speed":Form.entry,
+            "Weapons & Armor":Form.text,"Aspects":Form.text}))
+
         self.articles.sort(key=lambda x: x.name)
 
         self.builders = {}
